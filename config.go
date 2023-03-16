@@ -1,6 +1,11 @@
 package web
 
-import "time"
+import (
+	"encoding/json"
+	"io/ioutil"
+	"strconv"
+	"time"
+)
 
 // Config is used to read the application configuration from a json file
 type Config struct {
@@ -31,4 +36,36 @@ type Config struct {
 	// will change the execution order of the middleware from the order it was added.
 	// e.g. router.Use(m1,m2), m2 will be executed first if ReverseMiddleware is true
 	ReverseMiddleware bool
+}
+
+// Loads config file from the provided filepath and validate
+func (cfg *Config) Load(filepath string) {
+	file, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		LOGHANDLER.Fatal(err)
+	}
+
+	err = json.Unmarshal(file, cfg)
+	if err != nil {
+		LOGHANDLER.Fatal(err)
+	}
+
+	err = cfg.Validate()
+	if err != nil {
+		LOGHANDLER.Fatal(ErrInvalidPort)
+	}
+}
+
+// Validate the config parsed into the Config struct
+func (cfg *Config) Validate() error {
+	i, err := strconv.Atoi(cfg.Port)
+	if err != nil {
+		return ErrInvalidPort
+	}
+
+	if i <= 0 || i > 65535 {
+		return ErrInvalidPort
+	}
+
+	return nil
 }
