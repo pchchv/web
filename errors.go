@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"os"
 )
 
 const (
@@ -121,4 +122,22 @@ func loggerWithCfg(stdout io.Writer, stderr io.Writer, cfgs ...logCfg) *logHandl
 		}
 	}
 	return lh
+}
+
+func init() {
+	GlobalLoggerConfig(nil, nil)
+}
+
+// GlobalLoggerConfig is used to configure the global/default web logger.
+// IMPORTANT: It is not safe for simultaneous operation.
+func GlobalLoggerConfig(stdout io.Writer, stderr io.Writer, cfgs ...logCfg) {
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	LOGHANDLER = loggerWithCfg(stdout, stderr, cfgs...)
 }
