@@ -10,3 +10,8 @@ e.g.
 3. Implementation of special application-level configurations or any similar objects into the request context as required.
 */
 package web
+
+const wgoCtxKey = ctxkey("webgocontext")
+
+// ctxkey is a custom string type to store the WebGo context within the HTTP request context.
+type ctxkey string
