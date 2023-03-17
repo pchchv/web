@@ -11,7 +11,10 @@ e.g.
 */
 package web
 
-import "net/http"
+import (
+	"crypto/tls"
+	"net/http"
+)
 
 const wgoCtxKey = ctxkey("webcontext")
 
@@ -91,4 +94,62 @@ func OriginalResponseWriter(rw http.ResponseWriter) http.ResponseWriter {
 		return nil
 	}
 	return crw.ResponseWriter
+}
+
+func (router *Router) setupServer() {
+	cfg := router.config
+	router.httpsServer = &http.Server{
+		Addr:         "",
+		Handler:      router,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		},
+	}
+	router.httpServer = &http.Server{
+		Addr:         "",
+		Handler:      router,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+	}
+	router.SetupMiddleware()
+}
+
+// SetupMiddleware initializes all middleware added with "Use".
+// This function does not need to be called explicitly if router.Start() or router.StartHTTPS() is used.
+// Instead, if the router is passed to an external server, the SetupMiddleware function should be called.
+func (router *Router) SetupMiddleware() {
+	// load middleware for all routes
+	for _, routes := range router.allHandlers {
+		for _, route := range routes {
+			route.setupMiddleware(router.config.ReverseMiddleware)
+		}
+	}
+}
+
+// StartHTTPS starts the server with HTTPS enabled
+func (router *Router) StartHTTPS() {
+	cfg := router.config
+	if cfg.CertFile == "" {
+		LOGHANDLER.Fatal("No certificate provided for HTTPS")
+	}
+
+	if cfg.KeyFile == "" {
+		LOGHANDLER.Fatal("No key file provided for HTTPS")
+	}
+
+	router.setupServer()
+
+	host := cfg.Host
+	if len(cfg.HTTPSPort) > 0 {
+		host += ":" + cfg.HTTPSPort
+	}
+	router.httpsServer.Addr = host
+
+	LOGHANDLER.Info("HTTPS server, listening on", router.httpsServer.Addr)
+	err := router.httpsServer.ListenAndServeTLS(cfg.CertFile, cfg.KeyFile)
+	if err != nil && err != http.ErrServerClosed {
+		LOGHANDLER.Error("HTTPS server exited with error:", err.Error())
+	}
 }
