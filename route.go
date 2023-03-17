@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
 )
@@ -141,4 +142,84 @@ func defaultRouteServe(r *Route) http.HandlerFunc {
 	// when there is only 1 handler, the custom response writer does not
 	// have to check if the answer is already written or enabled
 	return r.Handlers[0]
+}
+
+// matchPath matches requestURI with a route URI pattern
+func (r *Route) matchPath(requestURI string) (bool, map[string]string) {
+	p := bytes.NewBufferString(r.Pattern)
+	if r.TrailingSlash {
+		p.WriteString("/")
+	} else {
+		if requestURI[len(requestURI)-1] == '/' {
+			return false, nil
+		}
+	}
+
+	if r.Pattern == requestURI || p.String() == requestURI {
+		return true, nil
+	}
+
+	return r.matchWithWildcard(requestURI)
+}
+
+func (r *Route) matchWithWildcard(requestURI string) (bool, map[string]string) {
+	// if r.fragments is empty, it means that there are no variables in the URI template,
+	// hence there is no point in checking it
+	if len(r.fragments) == 0 {
+		return false, nil
+	}
+
+	params := make(map[string]string, r.paramsCount)
+	uriFragments := strings.Split(requestURI, "/")[1:]
+	fragmentsLastIdx := len(r.fragments) - 1
+	fragmentIdx := 0
+	uriParameter := make([]string, 0, len(uriFragments))
+
+	for idx, fragment := range uriFragments {
+		// if the part is empty, it means it is the end of the URI with a slash.
+		if fragment == "" {
+			break
+		}
+
+		if fragmentIdx > fragmentsLastIdx {
+			return false, nil
+		}
+
+		currentFragment := r.fragments[fragmentIdx]
+		if !currentFragment.isVariable && currentFragment.fragment != fragment {
+			return false, nil
+		}
+
+		uriParameter = append(uriParameter, fragment)
+		if currentFragment.isVariable {
+			params[currentFragment.fragment] = strings.Join(uriParameter, "/")
+		}
+
+		if !currentFragment.hasWildcard {
+			uriParameter = make([]string, 0, len(uriFragments)-idx)
+			fragmentIdx++
+			continue
+		}
+
+		nextIdx := fragmentIdx + 1
+		if nextIdx > fragmentsLastIdx {
+			continue
+		}
+		nextPart := r.fragments[nextIdx]
+
+		// If the URI has more fragments/parameters after the wildcard,
+		// then the fragment immediately following the wildcard cannot be a variable or another wildcard.
+		if !nextPart.isVariable && nextPart.fragment == fragment {
+			// remove the last added 'part' from the parameters, because it is part of the static URI
+			params[currentFragment.fragment] = strings.Join(uriParameter[:len(uriParameter)-1], "/")
+			uriParameter = make([]string, 0, len(uriFragments)-idx)
+			fragmentIdx += 2
+		}
+	}
+
+	if len(params) != r.paramsCount {
+		return false, nil
+	}
+
+	return true, params
 }
