@@ -15,6 +15,16 @@ import "net/http"
 
 const wgoCtxKey = ctxkey("webgocontext")
 
+var supportedHTTPMethods = []string{
+	http.MethodOptions,
+	http.MethodHead,
+	http.MethodGet,
+	http.MethodPost,
+	http.MethodPut,
+	http.MethodPatch,
+	http.MethodDelete,
+}
+
 // ctxkey is a custom string type to store the WebGo context within the HTTP request context.
 type ctxkey string
 

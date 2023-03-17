@@ -345,6 +345,37 @@ func httpHandlers(routes []*Route) map[string][]*Route {
 	return handlers
 }
 
+// Add is a convenience method used to add a new route to an already initialized router
+// Important: `.Use` should be used only after all routes are added
+func (rtr *Router) Add(routes ...*Route) {
+	hmap := httpHandlers(routes)
+	rtr.optHandlers = append(rtr.optHandlers, hmap[http.MethodOptions]...)
+	rtr.headHandlers = append(rtr.headHandlers, hmap[http.MethodHead]...)
+	rtr.getHandlers = append(rtr.getHandlers, hmap[http.MethodGet]...)
+	rtr.postHandlers = append(rtr.postHandlers, hmap[http.MethodPost]...)
+	rtr.putHandlers = append(rtr.putHandlers, hmap[http.MethodPut]...)
+	rtr.patchHandlers = append(rtr.patchHandlers, hmap[http.MethodPatch]...)
+	rtr.deleteHandlers = append(rtr.deleteHandlers, hmap[http.MethodDelete]...)
+
+	all := rtr.allHandlers
+	if all == nil {
+		all = map[string][]*Route{}
+	}
+
+	for _, key := range supportedHTTPMethods {
+		newlist, hasKey := hmap[key]
+		if !hasKey {
+			continue
+		}
+		if all[key] == nil {
+			all[key] = make([]*Route, 0, len(hmap))
+		}
+		all[key] = append(all[key], newlist...)
+	}
+
+	rtr.allHandlers = all
+}
+
 func newContext() *ContextPayload {
 	return ctxPool.Get().(*ContextPayload)
 }
