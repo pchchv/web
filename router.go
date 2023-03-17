@@ -1,6 +1,26 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"sync"
+)
+
+var (
+	validHTTPMethods = []string{
+		http.MethodOptions,
+		http.MethodHead,
+		http.MethodGet,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+	}
+	crwPool = &sync.Pool{
+		New: func() interface{} {
+			return new(customResponseWriter)
+		},
+	}
+)
 
 // Router is the HTTP router
 type Router struct {
@@ -30,3 +50,18 @@ type Router struct {
 
 // Middleware is the signature of WebGo's middleware
 type Middleware func(http.ResponseWriter, *http.Request, http.HandlerFunc)
+
+// customResponseWriter is a custom HTTP response writer
+type customResponseWriter struct {
+	http.ResponseWriter
+	statusCode    int
+	written       bool
+	headerWritten bool
+}
+
+func newCRW(rw http.ResponseWriter, rCode int) *customResponseWriter {
+	crw := crwPool.Get().(*customResponseWriter)
+	crw.ResponseWriter = rw
+	crw.statusCode = rCode
+	return crw
+}
