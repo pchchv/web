@@ -1,6 +1,9 @@
 package web
 
 import (
+	"bufio"
+	"errors"
+	"net"
 	"net/http"
 	"sync"
 )
@@ -64,4 +67,67 @@ func newCRW(rw http.ResponseWriter, rCode int) *customResponseWriter {
 	crw.ResponseWriter = rw
 	crw.statusCode = rCode
 	return crw
+}
+
+// WriteHeader is an implementation of an interface for getting the
+// HTTP response code and adding it to the user's response writer.
+func (crw *customResponseWriter) WriteHeader(code int) {
+	if crw.headerWritten {
+		return
+	}
+
+	crw.headerWritten = true
+	crw.statusCode = code
+	crw.ResponseWriter.WriteHeader(code)
+}
+
+// Write is an implementation of an interface to respond to an HTTP request,
+// but checks to see if a response has already been sent.
+func (crw *customResponseWriter) Write(body []byte) (int, error) {
+	crw.WriteHeader(crw.statusCode)
+	crw.written = true
+	return crw.ResponseWriter.Write(body)
+}
+
+// Flush calls http.Flusher to clean/flush the buffer.
+func (crw *customResponseWriter) Flush() {
+	if rw, ok := crw.ResponseWriter.(http.Flusher); ok {
+		rw.Flush()
+	}
+}
+
+// Hijack implements the http.Hijacker interface.
+func (crw *customResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := crw.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+
+	return nil, nil, errors.New("unable to create hijacker")
+}
+
+// CloseNotify implements the http.CloseNotifier interface
+func (crw *customResponseWriter) CloseNotify() <-chan bool {
+	if n, ok := crw.ResponseWriter.(http.CloseNotifier); ok {
+		return n.CloseNotify()
+	}
+	return nil
+}
+
+func (crw *customResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if n, ok := crw.ResponseWriter.(http.Pusher); ok {
+		return n.Push(target, opts)
+	}
+	return errors.New("pusher not implemented")
+}
+
+func (crw *customResponseWriter) reset() {
+	crw.statusCode = 0
+	crw.written = false
+	crw.headerWritten = false
+	crw.ResponseWriter = nil
+}
+
+func releaseCRW(crw *customResponseWriter) {
+	crw.reset()
+	crwPool.Put(crw)
 }
