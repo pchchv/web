@@ -12,6 +12,7 @@ e.g.
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 )
@@ -152,4 +153,56 @@ func (router *Router) StartHTTPS() {
 	if err != nil && err != http.ErrServerClosed {
 		LOGHANDLER.Error("HTTPS server exited with error:", err.Error())
 	}
+}
+
+// Start starts the HTTP server with the appropriate configurations
+func (router *Router) Start() {
+	router.setupServer()
+
+	cfg := router.config
+	host := cfg.Host
+	if len(cfg.Port) > 0 {
+		host += ":" + cfg.Port
+	}
+	router.httpServer.Addr = host
+
+	LOGHANDLER.Info("HTTP server, listening on", router.httpServer.Addr)
+	err := router.httpServer.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		LOGHANDLER.Error("HTTP server exited with error:", err.Error())
+	}
+}
+
+// Shutdown gracefully shuts down HTTP server
+func (router *Router) Shutdown() error {
+	if router.httpServer == nil {
+		return nil
+	}
+	timer := router.config.ShutdownTimeout
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timer)
+	defer cancel()
+
+	err := router.httpServer.Shutdown(ctx)
+	if err != nil {
+		LOGHANDLER.Error(err)
+	}
+	return err
+}
+
+// ShutdownHTTPS gracefully shuts down HTTPS server
+func (router *Router) ShutdownHTTPS() error {
+	if router.httpsServer == nil {
+		return nil
+	}
+	timer := router.config.ShutdownTimeout
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timer)
+	defer cancel()
+
+	err := router.httpsServer.Shutdown(ctx)
+	if err != nil && err != http.ErrServerClosed {
+		LOGHANDLER.Error(err)
+	}
+	return err
 }
