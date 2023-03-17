@@ -91,6 +91,51 @@ func SendHeader(w http.ResponseWriter, rCode int) {
 	w.WriteHeader(rCode)
 }
 
+// R200 - Successful/OK response
+func R200(w http.ResponseWriter, data interface{}) {
+	SendResponse(w, data, http.StatusOK)
+}
+
+// R201 - New item created
+func R201(w http.ResponseWriter, data interface{}) {
+	SendResponse(w, data, http.StatusCreated)
+}
+
+// R204 - empty, no content
+func R204(w http.ResponseWriter) {
+	SendHeader(w, http.StatusNoContent)
+}
+
+// R302 - Temporary redirect
+func R302(w http.ResponseWriter, data interface{}) {
+	SendResponse(w, data, http.StatusFound)
+}
+
+// R400 - Invalid request, any incorrect/erraneous value in the request body
+func R400(w http.ResponseWriter, data interface{}) {
+	SendError(w, data, http.StatusBadRequest)
+}
+
+// R403 - Unauthorized access
+func R403(w http.ResponseWriter, data interface{}) {
+	SendError(w, data, http.StatusForbidden)
+}
+
+// R404 - Resource not found
+func R404(w http.ResponseWriter, data interface{}) {
+	SendError(w, data, http.StatusNotFound)
+}
+
+// R406 - Unacceptable header. For any error related to values set in header
+func R406(w http.ResponseWriter, data interface{}) {
+	SendError(w, data, http.StatusNotAcceptable)
+}
+
+// R451 - Resource taken down because of a legal request
+func R451(w http.ResponseWriter, data interface{}) {
+	SendError(w, data, http.StatusUnavailableForLegalReasons)
+}
+
 // R500 - Internal server error
 func R500(w http.ResponseWriter, data interface{}) {
 	SendError(w, data, http.StatusInternalServerError)
