@@ -131,3 +131,35 @@ func releaseCRW(crw *customResponseWriter) {
 	crw.reset()
 	crwPool.Put(crw)
 }
+
+// discoverRoute returns the correct 'route', for the given request
+func discoverRoute(path string, routes []*Route) (*Route, map[string]string) {
+	for _, route := range routes {
+		if ok, params := route.matchPath(path); ok {
+			return route, params
+		}
+	}
+	return nil, nil
+}
+
+// methodRoutes returns the list of Routes handling the HTTP method given the request
+func (rtr *Router) methodRoutes(method string) (routes []*Route) {
+	switch method {
+	case http.MethodOptions:
+		return rtr.optHandlers
+	case http.MethodHead:
+		return rtr.headHandlers
+	case http.MethodGet:
+		return rtr.getHandlers
+	case http.MethodPost:
+		return rtr.postHandlers
+	case http.MethodPut:
+		return rtr.putHandlers
+	case http.MethodPatch:
+		return rtr.patchHandlers
+	case http.MethodDelete:
+		return rtr.deleteHandlers
+	}
+
+	return nil
+}
