@@ -71,3 +71,24 @@ func SetError(r *http.Request, err error) {
 func GetError(r *http.Request) error {
 	return Context(r).Error()
 }
+
+// ResponseStatus returns the response status code.
+// This only works if http.ResponseWriter is not wrapped in
+// another response writer before calling ResponseStatus.
+func ResponseStatus(rw http.ResponseWriter) int {
+	crw, ok := rw.(*customResponseWriter)
+	if !ok {
+		return http.StatusOK
+	}
+	return crw.statusCode
+}
+
+// OriginalResponseWriter returns the Go response record stored in
+// the custom web response record.
+func OriginalResponseWriter(rw http.ResponseWriter) http.ResponseWriter {
+	crw, ok := rw.(*customResponseWriter)
+	if !ok {
+		return nil
+	}
+	return crw.ResponseWriter
+}
