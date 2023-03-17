@@ -69,6 +69,22 @@ type customResponseWriter struct {
 	headerWritten bool
 }
 
+// httpResponseWriter has all the functions to be implemented by the custom
+// responsewriter used
+type httpResponseWriter interface {
+	http.ResponseWriter
+	http.CloseNotifier
+	http.Flusher
+	http.Hijacker
+	http.Pusher
+}
+
+func init() {
+	// ensure the custom response writer implements all the required functions
+	crw := &customResponseWriter{}
+	_ = httpResponseWriter(crw)
+}
+
 func newCRW(rw http.ResponseWriter, rCode int) *customResponseWriter {
 	crw := crwPool.Get().(*customResponseWriter)
 	crw.ResponseWriter = rw
