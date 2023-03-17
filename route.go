@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -229,4 +230,41 @@ func (r *Route) use(mm ...Middleware) {
 		r.middlewarelist = make([]Middleware, 0, len(mm))
 	}
 	r.middlewarelist = append(r.middlewarelist, mm...)
+}
+
+type RouteGroup struct {
+	routes []*Route
+	// skipRouterMiddleware if set to true,
+	// the middleware applied to the router will not be applied to this route group.
+	skipRouterMiddleware bool
+	// PathPrefix is the URI prefix for all routes in this group
+	PathPrefix string
+}
+
+func NewRouteGroup(pathPrefix string, skipRouterMiddleware bool, rr ...Route) *RouteGroup {
+	rg := RouteGroup{
+		PathPrefix:           pathPrefix,
+		skipRouterMiddleware: skipRouterMiddleware,
+	}
+	rg.Add(rr...)
+	return &rg
+}
+
+func (rg *RouteGroup) Add(rr ...Route) {
+	for idx := range rr {
+		route := rr[idx]
+		route.skipMiddleware = rg.skipRouterMiddleware
+		route.Pattern = fmt.Sprintf("%s%s", rg.PathPrefix, route.Pattern)
+		rg.routes = append(rg.routes, &route)
+	}
+}
+
+func (rg *RouteGroup) Use(mm ...Middleware) {
+	for _, route := range rg.routes {
+		route.use(mm...)
+	}
+}
+
+func (rg *RouteGroup) Routes() []*Route {
+	return rg.routes
 }
