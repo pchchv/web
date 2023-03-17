@@ -13,7 +13,7 @@ package web
 
 import "net/http"
 
-const wgoCtxKey = ctxkey("webgocontext")
+const wgoCtxKey = ctxkey("webcontext")
 
 var supportedHTTPMethods = []string{
 	http.MethodOptions,
@@ -25,10 +25,10 @@ var supportedHTTPMethods = []string{
 	http.MethodDelete,
 }
 
-// ctxkey is a custom string type to store the WebGo context within the HTTP request context.
+// ctxkey is a custom string type to store the Web context within the HTTP request context.
 type ctxkey string
 
-// ContextPayload is a WebgoContext.
+// ContextPayload is a WebContext.
 // A new ContextPayload instance is injected inside the context object of each request.
 type ContextPayload struct {
 	Route     *Route
@@ -59,4 +59,15 @@ func (cp *ContextPayload) Error() error {
 // Context returns the ContextPayload injected inside the HTTP request context.
 func Context(r *http.Request) *ContextPayload {
 	return r.Context().Value(wgoCtxKey).(*ContextPayload)
+}
+
+// SetError is an auxiliary function for setting an error in the web context
+func SetError(r *http.Request, err error) {
+	ctx := Context(r)
+	ctx.SetError(err)
+}
+
+// GetError is an auxiliary function to get the error from the web context
+func GetError(r *http.Request) error {
+	return Context(r).Error()
 }
