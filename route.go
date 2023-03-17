@@ -223,3 +223,10 @@ func (r *Route) matchWithWildcard(requestURI string) (bool, map[string]string) {
 
 	return true, params
 }
+
+func (r *Route) use(mm ...Middleware) {
+	if r.middlewarelist == nil {
+		r.middlewarelist = make([]Middleware, 0, len(mm))
+	}
+	r.middlewarelist = append(r.middlewarelist, mm...)
+}
