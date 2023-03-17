@@ -1,6 +1,9 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // Route defines a route for each API
 type Route struct {
@@ -41,4 +44,64 @@ type uriFragment struct {
 	hasWildcard bool
 	// fragment will be the key name, if it's a variable/named URI parameter
 	fragment string
+}
+
+func (r *Route) parseURIWithParams() {
+	// if there are no URI params, then there's no need to set route parts
+	if !strings.Contains(r.Pattern, ":") {
+		return
+	}
+
+	fragments := strings.Split(r.Pattern, "/")
+	if len(fragments) == 1 {
+		return
+	}
+
+	rFragments := make([]uriFragment, 0, len(fragments))
+	for _, fragment := range fragments[1:] {
+		hasParam := false
+		hasWildcard := false
+
+		if strings.Contains(fragment, ":") {
+			hasParam = true
+			r.paramsCount++
+		}
+		if strings.Contains(fragment, "*") {
+			r.hasWildcard = true
+			hasWildcard = true
+		}
+
+		key := strings.ReplaceAll(fragment, ":", "")
+		key = strings.ReplaceAll(key, "*", "")
+		rFragments = append(
+			rFragments,
+			uriFragment{
+				isVariable:  hasParam,
+				hasWildcard: hasWildcard,
+				fragment:    key,
+			})
+	}
+	r.fragments = rFragments
+}
+
+func (r *Route) setupMiddleware(reverse bool) {
+	if reverse {
+		for i := range r.middlewarelist {
+			m := r.middlewarelist[i]
+			srv := r.serve
+			r.serve = func(rw http.ResponseWriter, req *http.Request) {
+				m(rw, req, srv)
+			}
+		}
+	} else {
+		for i := len(r.middlewarelist) - 1; i >= 0; i-- {
+			m := r.middlewarelist[i]
+			srv := r.serve
+			r.serve = func(rw http.ResponseWriter, req *http.Request) {
+				m(rw, req, srv)
+			}
+		}
+	}
+	// clear the middleware list, because it is already configured for the route
+	r.middlewarelist = nil
 }
