@@ -163,3 +163,17 @@ func (rtr *Router) methodRoutes(method string) (routes []*Route) {
 
 	return nil
 }
+
+// Use adds a middleware layer
+func (rtr *Router) Use(mm ...Middleware) {
+	for _, handlers := range rtr.allHandlers {
+		for idx := range handlers {
+			route := handlers[idx]
+			if route.skipMiddleware {
+				continue
+			}
+
+			route.use(mm...)
+		}
+	}
+}
