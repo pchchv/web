@@ -376,6 +376,21 @@ func (rtr *Router) Add(routes ...*Route) {
 	rtr.allHandlers = all
 }
 
+// NewRouter initializes & returns a new router instance with all the configurations and routes set
+func NewRouter(cfg *Config, routes ...*Route) *Router {
+	r := &Router{
+		NotFound: http.NotFound,
+		NotImplemented: func(rw http.ResponseWriter, req *http.Request) {
+			Send(rw, "", "501 Not Implemented", http.StatusNotImplemented)
+		},
+		config: cfg,
+	}
+
+	r.Add(routes...)
+
+	return r
+}
+
 func newContext() *ContextPayload {
 	return ctxPool.Get().(*ContextPayload)
 }
