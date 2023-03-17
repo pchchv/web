@@ -2,6 +2,7 @@ package web
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -56,7 +57,7 @@ type Router struct {
 	httpsServer *http.Server
 }
 
-// Middleware is the signature of WebGo's middleware
+// Middleware is the signature of Web's middleware
 type Middleware func(http.ResponseWriter, *http.Request, http.HandlerFunc)
 
 // customResponseWriter is a custom HTTP response writer
@@ -183,6 +184,63 @@ func (rtr *Router) Use(mm ...Middleware) {
 	}
 }
 
+func (rtr *Router) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	// the custom response writer is used to set the appropriate HTTP status code in case of encoding errors.
+	// i.e. if there is a JSON encoding problem in the response,
+	// the HTTP status code will be 200, and the JSON payload {"status": 500}
+	crw := newCRW(rw, http.StatusOK)
+
+	routes := rtr.methodRoutes(r.Method)
+	if routes == nil {
+		// serve 501 when HTTP method is not implemented
+		crw.statusCode = http.StatusNotImplemented
+		rtr.NotImplemented(crw, r)
+		releaseCRW(crw)
+		return
+	}
+
+	path := r.URL.EscapedPath()
+	route, params := discoverRoute(path, routes)
+	if route == nil {
+		// serve 404 when there are no matching routes
+		crw.statusCode = http.StatusNotFound
+		rtr.NotFound(crw, r)
+		releaseCRW(crw)
+		return
+	}
+
+	ctxPayload := newContext()
+	ctxPayload.Route = route
+	ctxPayload.URIParams = params
+
+	// web context is injected to the HTTP request context
+	*r = *r.WithContext(
+		context.WithValue(
+			r.Context(),
+			wgoCtxKey,
+			ctxPayload,
+		),
+	)
+
+	defer releasePoolResources(crw, ctxPayload)
+	route.serve(crw, r)
+}
+
+// UseOnSpecialHandlers adds middleware to 2 special web handlers
+func (rtr *Router) UseOnSpecialHandlers(mm ...Middleware) {
+	for idx := range mm {
+		m := mm[idx]
+		nf := rtr.NotFound
+		rtr.NotFound = func(rw http.ResponseWriter, req *http.Request) {
+			m(rw, req, nf)
+		}
+
+		ni := rtr.NotImplemented
+		rtr.NotImplemented = func(rw http.ResponseWriter, req *http.Request) {
+			m(rw, req, ni)
+		}
+	}
+}
 func newContext() *ContextPayload {
 	return ctxPool.Get().(*ContextPayload)
 }
