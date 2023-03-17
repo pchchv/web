@@ -12,6 +12,24 @@ const (
 	ErrInternalServer = "Internal server error"
 )
 
+// ErrorData used to render the error page
+type ErrorData struct {
+	ErrCode        int
+	ErrDescription string
+}
+
+// dOutput is the standard/valid output wrapped in `{data: <payload>, status: <http response status>}`
+type dOutput struct {
+	Data   interface{} `json:"data"`
+	Status int         `json:"status"`
+}
+
+// errOutput is the error output wrapped in `{errors:<errors>, status: <http response status>}`
+type errOutput struct {
+	Errors interface{} `json:"errors"`
+	Status int         `json:"status"`
+}
+
 func crwAsserter(w http.ResponseWriter, rCode int) http.ResponseWriter {
 	if crw, ok := w.(*customResponseWriter); ok {
 		crw.statusCode = rCode
