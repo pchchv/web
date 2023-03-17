@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -241,6 +242,93 @@ func (rtr *Router) UseOnSpecialHandlers(mm ...Middleware) {
 		}
 	}
 }
+
+// checkDuplicateRoutes checks if any of the routes has a duplicate name or URI pattern
+func checkDuplicateRoutes(idx int, route *Route, routes []*Route) {
+	// URI pattern duplication check
+	for i := 0; i < idx; i++ {
+		rt := routes[i]
+
+		if rt.Name == route.Name {
+			LOGHANDLER.Info(
+				fmt.Sprintf(
+					"Duplicate route name('%s') detected",
+					rt.Name,
+				),
+			)
+		}
+
+		if rt.Method != route.Method {
+			continue
+		}
+
+		// regex pattern match
+		if ok, _ := rt.matchPath(route.Pattern); !ok {
+			continue
+		}
+
+		LOGHANDLER.Warn(
+			fmt.Sprintf(
+				"Duplicate URI pattern detected.\nPattern: '%s'\nDuplicate pattern: '%s'",
+				rt.Pattern,
+				route.Pattern,
+			),
+		)
+		LOGHANDLER.Warn("Only the first route to match the URI pattern would handle the request")
+	}
+}
+
+// httpHandlers returns all handlers in the map, for each HTTP method
+func httpHandlers(routes []*Route) map[string][]*Route {
+	handlers := map[string][]*Route{}
+
+	handlers[http.MethodHead] = []*Route{}
+	handlers[http.MethodGet] = []*Route{}
+
+	for idx, route := range routes {
+		found := false
+		for _, validMethod := range validHTTPMethods {
+			if route.Method == validMethod {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			LOGHANDLER.Fatal(
+				fmt.Sprintf(
+					"Unsupported HTTP method provided. Method: '%s'",
+					route.Method,
+				),
+			)
+			return nil
+		}
+
+		if route.Handlers == nil || len(route.Handlers) == 0 {
+			LOGHANDLER.Fatal(
+				fmt.Sprintf(
+					"No handlers provided for the route '%s', method '%s'",
+					route.Pattern,
+					route.Method,
+				),
+			)
+			return nil
+		}
+
+		err := route.init()
+		if err != nil {
+			LOGHANDLER.Fatal("Unsupported URI pattern.", route.Pattern, err)
+			return nil
+		}
+
+		checkDuplicateRoutes(idx, route, routes)
+
+		handlers[route.Method] = append(handlers[route.Method], route)
+	}
+
+	return handlers
+}
+
 func newContext() *ContextPayload {
 	return ctxPool.Get().(*ContextPayload)
 }
