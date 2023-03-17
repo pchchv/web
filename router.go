@@ -18,6 +18,11 @@ var (
 		http.MethodPatch,
 		http.MethodDelete,
 	}
+	ctxPool = &sync.Pool{
+		New: func() interface{} {
+			return new(ContextPayload)
+		},
+	}
 	crwPool = &sync.Pool{
 		New: func() interface{} {
 			return new(customResponseWriter)
@@ -176,4 +181,18 @@ func (rtr *Router) Use(mm ...Middleware) {
 			route.use(mm...)
 		}
 	}
+}
+
+func newContext() *ContextPayload {
+	return ctxPool.Get().(*ContextPayload)
+}
+
+func releaseContext(cp *ContextPayload) {
+	cp.reset()
+	ctxPool.Put(cp)
+}
+
+func releasePoolResources(crw *customResponseWriter, cp *ContextPayload) {
+	releaseCRW(crw)
+	releaseContext(cp)
 }
