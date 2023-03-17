@@ -105,3 +105,40 @@ func (r *Route) setupMiddleware(reverse bool) {
 	// clear the middleware list, because it is already configured for the route
 	r.middlewarelist = nil
 }
+
+func routeServeChainedHandlers(r *Route) http.HandlerFunc {
+	return func(rw http.ResponseWriter, req *http.Request) {
+		crw, ok := rw.(*customResponseWriter)
+		if !ok {
+			crw = newCRW(rw, http.StatusOK)
+		}
+
+		for _, handler := range r.Handlers {
+			if crw.written && !r.FallThroughPostResponse {
+				break
+			}
+			handler(crw, req)
+		}
+	}
+}
+
+// init does all the initializations required for the route
+func (r *Route) init() error {
+	if r.initialized {
+		return nil
+	}
+	r.initialized = true
+
+	r.parseURIWithParams()
+	r.serve = defaultRouteServe(r)
+	return nil
+}
+
+func defaultRouteServe(r *Route) http.HandlerFunc {
+	if len(r.Handlers) > 1 {
+		return routeServeChainedHandlers(r)
+	}
+	// when there is only 1 handler, the custom response writer does not
+	// have to check if the answer is already written or enabled
+	return r.Handlers[0]
+}
