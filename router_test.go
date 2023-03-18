@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"testing"
 )
 
 type testLogger struct {
@@ -253,4 +254,73 @@ func successHandler(w http.ResponseWriter, r *http.Request) {
 			"params": params,
 		},
 	)
+}
+
+func getRoutes(t *testing.T) []*Route {
+	t.Helper()
+	list := testTable()
+	rr := make([]*Route, 0, len(list))
+	for _, l := range list {
+		switch l.TestType {
+		case "checkpath", "checkparams", "checkparamswildcard":
+			{
+				rr = append(rr,
+					&Route{
+						Name:                    l.Name,
+						Method:                  l.Method,
+						Pattern:                 l.Path,
+						TrailingSlash:           true,
+						FallThroughPostResponse: false,
+						Handlers:                []http.HandlerFunc{successHandler},
+					},
+				)
+			}
+		case "checkpathnotrailingslash", "widlcardwithouttrailingslash":
+			{
+				rr = append(rr,
+					&Route{
+						Name:                    l.Name,
+						Method:                  l.Method,
+						Pattern:                 l.Path,
+						TrailingSlash:           false,
+						FallThroughPostResponse: false,
+						Handlers:                []http.HandlerFunc{successHandler},
+					},
+				)
+
+			}
+
+		case "chaining":
+			{
+				rr = append(
+					rr,
+					&Route{
+						Name:                    l.Name,
+						Method:                  l.Method,
+						Pattern:                 l.Path,
+						TrailingSlash:           false,
+						FallThroughPostResponse: false,
+						Handlers:                []http.HandlerFunc{chainHandler, successHandler},
+					},
+				)
+			}
+		case "chaining-nofallthrough":
+			{
+				{
+					rr = append(
+						rr,
+						&Route{
+							Name:                    l.Name,
+							Method:                  l.Method,
+							Pattern:                 l.Path,
+							TrailingSlash:           false,
+							FallThroughPostResponse: false,
+							Handlers:                []http.HandlerFunc{chainHandler, chainNoFallthroughHandler, successHandler},
+						},
+					)
+				}
+			}
+		}
+	}
+	return rr
 }
