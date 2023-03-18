@@ -133,3 +133,79 @@ func TestSendError(t *testing.T) {
 	}
 
 }
+
+func TestSendResponse(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	payload := map[string]string{"hello": "world"}
+
+	SendResponse(w, payload, http.StatusOK)
+	body, err := ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	resp := struct {
+		Data map[string]string
+	}{}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	if !reflect.DeepEqual(payload, resp.Data) {
+		t.Errorf(
+			"Expected '%v', got '%v'. Raw response: '%s'",
+			payload,
+			resp.Data,
+			string(body),
+		)
+	}
+
+	if w.Result().StatusCode != http.StatusOK {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusOK,
+			w.Result().StatusCode,
+			string(body),
+		)
+	}
+
+	// invalid response
+	w = httptest.NewRecorder()
+	SendResponse(w, make(chan int), http.StatusOK)
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	invalidresp := struct {
+		Errors string
+	}{}
+
+	err = json.Unmarshal(body, &invalidresp)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	if !reflect.DeepEqual(`Internal server error`, invalidresp.Errors) {
+		t.Errorf(
+			"Expected '%v', got '%v'. Raw response: '%s'",
+			payload,
+			invalidresp.Errors,
+			string(body),
+		)
+	}
+
+	if w.Result().StatusCode != http.StatusInternalServerError {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusInternalServerError,
+			w.Result().StatusCode,
+			string(body),
+		)
+	}
+}
