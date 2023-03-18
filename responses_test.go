@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"text/template"
 )
 
 func TestSend(t *testing.T) {
@@ -506,6 +507,73 @@ func TestResponsehelpers(t *testing.T) {
 		t.Errorf(
 			"Expected response status code %d, got %d. Raw response: '%s'",
 			http.StatusUnavailableForLegalReasons,
+			w.Code,
+			string(body),
+		)
+	}
+}
+
+func TestRender(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	data := struct {
+		Hello string
+	}{
+		Hello: "world",
+	}
+	tpl := template.New("txttemp")
+	tpl, err := tpl.Parse(`{{.Hello}}`)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	Render(w, data, http.StatusOK, tpl)
+
+	body, err := ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusOK,
+			w.Code,
+			string(body),
+		)
+	}
+
+	w = httptest.NewRecorder()
+	invaliddata := 0
+
+	tpl = template.New("invalid")
+	tpl, err = tpl.Parse(`{{.Hello}}`)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	Render(w, invaliddata, http.StatusOK, tpl)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	str := string(body)
+	want := `Internal server error`
+	if str != want {
+		t.Errorf(
+			"Expected '%s', got '%s'. Raw response: '%s'",
+			want,
+			str,
+			str,
+		)
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusInternalServerError,
 			w.Code,
 			string(body),
 		)
