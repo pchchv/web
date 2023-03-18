@@ -2,9 +2,13 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -323,4 +327,73 @@ func getRoutes(t *testing.T) []*Route {
 		}
 	}
 	return rr
+}
+
+func checkPath(req *http.Request, resp *httptest.ResponseRecorder) error {
+	want := req.URL.EscapedPath()
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response, '%s'", err.Error())
+	}
+
+	body := struct {
+		Data struct {
+			Path   string
+			Params map[string]string
+		}
+	}{}
+	err = json.Unmarshal(rbody, &body)
+	if err != nil {
+		return fmt.Errorf(
+			"json decode failed '%s', got response: '%s'",
+			err.Error(),
+			string(rbody),
+		)
+	}
+
+	if want != body.Data.Path {
+		return fmt.Errorf("wanted URI path '%s', got '%s'", want, body.Data.Path)
+	}
+
+	return nil
+}
+
+func checkPathWildCard(req *http.Request, resp *httptest.ResponseRecorder) error {
+	want := req.URL.EscapedPath()
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response, '%s'", err.Error())
+	}
+
+	body := struct {
+		Data struct {
+			Path   string
+			Params map[string]string
+		}
+	}{}
+	err = json.Unmarshal(rbody, &body)
+	if err != nil {
+		return fmt.Errorf("json decode failed '%s', got response: '%s'", err.Error(), string(rbody))
+	}
+
+	if want != body.Data.Path {
+		return fmt.Errorf("wanted URI path '%s', got '%s'", want, body.Data.Path)
+	}
+
+	if len(body.Data.Params) != 1 {
+		return fmt.Errorf("expected no.of params: %d, got %d. response: '%s'", 1, len(body.Data.Params), string(rbody))
+	}
+
+	wantWildcardParamValue := ""
+	parts := strings.Split(want, "/")[2:]
+	wantWildcardParamValue = strings.Join(parts, "/")
+	if body.Data.Params["a"] != wantWildcardParamValue {
+		return fmt.Errorf(
+			"wildcard value\nexpected: %s\ngot: %s",
+			wantWildcardParamValue,
+			body.Data.Params["a"],
+		)
+	}
+
+	return nil
 }
