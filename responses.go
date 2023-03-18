@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"text/template"
 )
 
 const (
@@ -13,7 +14,7 @@ const (
 	JSONContentType = "application/json"
 	// HTMLContentType is the MIME type when the response is HTML
 	HTMLContentType = "text/html; charset=UTF-8"
-	// ErrInternalServer to send when an internal server error occurs
+	// ErrInternalServer to send when an internal server error
 	ErrInternalServer = "Internal server error"
 )
 
@@ -89,6 +90,22 @@ func SendError(w http.ResponseWriter, data interface{}, rCode int) {
 // SendHeader is used to send only a response header, i.e no response body
 func SendHeader(w http.ResponseWriter, rCode int) {
 	w.WriteHeader(rCode)
+}
+
+// Render is used for rendering templates (HTML)
+func Render(w http.ResponseWriter, data interface{}, rCode int, tpl *template.Template) {
+	w = crwAsserter(w, rCode)
+
+	// In the case of the HTML response,
+	// setting the appropriate header type for the text/HTML response
+	w.Header().Set(HeaderContentType, HTMLContentType)
+
+	// Rendering an HTML template with relevant data
+	err := tpl.Execute(w, data)
+	if err != nil {
+		Send(w, "text/plain", ErrInternalServer, http.StatusInternalServerError)
+		LOGHANDLER.Error(err.Error())
+	}
 }
 
 // R200 - Successful/OK response
