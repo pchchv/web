@@ -233,3 +233,24 @@ func testTable() []struct {
 		},
 	}
 }
+
+func chainHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("chained", "true")
+}
+
+func chainNoFallthroughHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("chained", "true")
+	_, _ = w.Write([]byte(`yay, blocked!`))
+}
+
+func successHandler(w http.ResponseWriter, r *http.Request) {
+	wctx := Context(r)
+	params := wctx.Params()
+	R200(
+		w,
+		map[string]interface{}{
+			"path":   r.URL.Path,
+			"params": params,
+		},
+	)
+}
