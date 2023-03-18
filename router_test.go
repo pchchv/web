@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -483,4 +484,233 @@ func checkChaining(req *http.Request, resp *httptest.ResponseRecorder) error {
 		)
 	}
 	return nil
+}
+
+func TestRouter_ServeHTTP(t *testing.T) {
+	t.Parallel()
+	port := "9696"
+	router, err := setup(t, port)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	m := func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+		w.Header().Add("middleware", "true")
+		next(w, r)
+	}
+	router.Use(m)
+	router.UseOnSpecialHandlers(m)
+	router.SetupMiddleware()
+
+	list := testTable()
+	baseAPI := fmt.Sprintf("http://localhost:%s", port)
+
+	for _, l := range list {
+		url := baseAPI
+		if l.Path != "" {
+			switch l.TestType {
+			case "checkpath",
+				"checkpathnotrailingslash",
+				"chaining",
+				"notfound",
+				"chaining-nofallthrough":
+				{
+					url = strings.Join([]string{url, l.Path}, "")
+				}
+			case "checkparams", "widlcardwithouttrailingslash":
+				{
+					for idx, key := range l.ParamKeys {
+						// in the case of parameters with wildcards,
+						// they must be replaced first to correctly construct the URL
+						l.Path = strings.Replace(l.Path, ":"+key+"*", l.Params[idx], 1)
+						l.Path = strings.Replace(l.Path, ":"+key, l.Params[idx], 1)
+					}
+					url = strings.Join([]string{url, l.Path}, "")
+				}
+			}
+		}
+
+		respRec := httptest.NewRecorder()
+		req := httptest.NewRequest(
+			l.Method,
+			url,
+			l.Body,
+		)
+		router.ServeHTTP(respRec, req)
+
+		switch l.TestType {
+		case "checkpath", "checkpathnotrailingslash":
+			{
+				err = checkPath(req, respRec)
+			}
+		case "widlcardwithouttrailingslash":
+			{
+				err = checkPathWildCard(req, respRec)
+			}
+		case "chaining":
+			{
+				err = checkChaining(req, respRec)
+			}
+		case "checkparams":
+			{
+				err = checkParams(req, respRec, l.ParamKeys, l.Params)
+			}
+		case "notimplemented":
+			{
+				err = checkNotImplemented(req, respRec)
+			}
+		case "notfound":
+			{
+				err = checkNotFound(req, respRec)
+			}
+		}
+
+		if err != nil && !l.WantErr {
+			t.Errorf(
+				"'%s' (%s '%s'): %s",
+				l.Name,
+				l.Method,
+				url,
+				err.Error(),
+			)
+			if l.Err != nil {
+				if !errors.Is(err, l.Err) {
+					t.Errorf(
+						"expected error '%s', got %s",
+						l.Err.Error(),
+						err.Error(),
+					)
+				}
+			}
+		} else if err == nil && l.WantErr {
+			t.Errorf(
+				"'%s' (%s '%s') expected error, but received nil",
+				l.Name,
+				l.Method,
+				url,
+			)
+		}
+
+		err = checkMiddleware(req, respRec)
+		if err != nil {
+			t.Error(err.Error())
+		}
+	}
+}
+
+func Test_httpHandlers(t *testing.T) {
+	t.Parallel()
+	tl := &testLogger{
+		out: bytes.Buffer{},
+	}
+	LOGHANDLER = tl
+
+	// invalid method
+	httpHandlers(
+		[]*Route{
+			{
+				Name:    "invalid method",
+				Pattern: "/hello/world",
+				Method:  "HELLO",
+			},
+		})
+	got := tl.out.String()
+	want := "Unsupported HTTP method provided. Method: 'HELLO'"
+	if got != want {
+		t.Errorf(
+			"Expected the error to end with '%s', got '%s'",
+			want,
+			got,
+		)
+	}
+	tl.out.Reset()
+
+	// empty handlers
+	httpHandlers(
+		[]*Route{
+			{
+				Name:    "empty handlers",
+				Pattern: "/hello/world",
+				Method:  http.MethodGet,
+			},
+		})
+	str := tl.out.String()
+	want = "provided for the route '/hello/world', method 'GET'"
+	got = str[len(str)-len(want):]
+	if got != want {
+		t.Errorf(
+			"Expected the error to end with '%s', got '%s'",
+			want,
+			got,
+		)
+	}
+	tl.out.Reset()
+}
+
+func TestWildcardMadness(t *testing.T) {
+	port := "9696"
+	t.Helper()
+	cfg := &Config{
+		Port:            port,
+		ReadTimeout:     time.Second * 1,
+		WriteTimeout:    time.Second * 1,
+		ShutdownTimeout: time.Second * 10,
+		CertFile:        "tests/ssl/server.crt",
+		KeyFile:         "tests/ssl/server.key",
+	}
+	router := NewRouter(cfg, []*Route{
+		{
+			Name:          "wildcard madness",
+			Pattern:       "/hello/:w*/world/:p1/:w2*/hi/there",
+			Handlers:      []http.HandlerFunc{successHandler},
+			Method:        http.MethodGet,
+			TrailingSlash: true,
+		},
+	}...)
+
+	baseAPI := fmt.Sprintf("http://localhost:%s", port)
+	url := fmt.Sprintf(
+		"%s%s",
+		baseAPI,
+		"/hello/a/b/c/-d/~/e/world/fgh/i/j/k~/l-/hi/there/",
+	)
+
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	respRec := httptest.NewRecorder()
+	router.ServeHTTP(respRec, req)
+
+	rbody, err := ioutil.ReadAll(respRec.Body)
+	if err != nil {
+		t.Error(err)
+	}
+	if respRec.Code != http.StatusOK {
+		t.Errorf("expected status code: %d, got: %d. response: '%s'", http.StatusOK, respRec.Code, string(rbody))
+	}
+
+	url = fmt.Sprintf(
+		"%s%s",
+		baseAPI,
+		"/hello/a/b/c/-d/~/e/world/fgh/i/j/k~/l-/hi/there",
+	)
+
+	req, _ = http.NewRequest(http.MethodGet, url, nil)
+	respRec = httptest.NewRecorder()
+	router.ServeHTTP(respRec, req)
+
+	if respRec.Code != http.StatusOK {
+		t.Errorf("expected status code: %d, got: %d", http.StatusOK, respRec.Code)
+	}
+
+	err = checkParams(
+		req,
+		respRec,
+		[]string{"w", "p1", "w2"},
+		[]string{
+			"a/b/c/-d/~/e",
+			"fgh",
+			"i/j/k~/l-",
+		})
+	if err != nil {
+		t.Error(err)
+	}
 }
