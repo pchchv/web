@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"testing"
 	"time"
 )
@@ -14,7 +15,7 @@ func TestConfig_LoadValid(t *testing.T) {
 	if cfg.Validate() != ErrInvalidPort {
 		t.Error("Port validation failed")
 	}
-	
+
 	cfg.Port = "65536"
 	if cfg.Validate() != ErrInvalidPort {
 		t.Error("Port validation failed")
@@ -72,4 +73,26 @@ func TestConfig_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfig_LoadInvalid(t *testing.T) {
+	t.Parallel()
+	tl := &testLogger{
+		out: bytes.Buffer{},
+	}
+	LOGHANDLER = tl
+
+	cfg := &Config{}
+	cfg.Load("")
+	str := tl.out.String()
+	want := "open : no such file or directoryunexpected end of JSON inputPort number not provided or is invalid (should be between 0 - 65535)"
+	got := str
+	if got != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			got,
+		)
+	}
+	tl.out.Reset()
 }
