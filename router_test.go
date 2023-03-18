@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type testLogger struct {
@@ -30,6 +31,20 @@ func (tl *testLogger) Error(data ...interface{}) {
 }
 func (tl *testLogger) Fatal(data ...interface{}) {
 	tl.out.Write([]byte(fmt.Sprint(data...)))
+}
+
+func setup(t *testing.T, port string) (*Router, error) {
+	t.Helper()
+	cfg := &Config{
+		Port:            port,
+		ReadTimeout:     time.Second * 1,
+		WriteTimeout:    time.Second * 1,
+		ShutdownTimeout: time.Second * 10,
+		CertFile:        "tests/ssl/server.crt",
+		KeyFile:         "tests/ssl/server.key",
+	}
+	router := NewRouter(cfg, getRoutes(t)...)
+	return router, nil
 }
 
 func testTable() []struct {
