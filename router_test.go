@@ -397,3 +397,75 @@ func checkPathWildCard(req *http.Request, resp *httptest.ResponseRecorder) error
 
 	return nil
 }
+
+func checkMiddleware(req *http.Request, resp *httptest.ResponseRecorder) error {
+	if resp.Header().Get("middleware") != "true" {
+		return fmt.Errorf(
+			"Expected header value for 'middleware', to be 'true', got '%s'",
+			resp.Header().Get("middleware"),
+		)
+	}
+	return nil
+}
+
+func checkParams(req *http.Request, resp *httptest.ResponseRecorder, keys []string, expected []string) error {
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response, '%s'", err.Error())
+	}
+
+	body := struct {
+		Data struct {
+			Params map[string]string
+		}
+	}{}
+	err = json.Unmarshal(rbody, &body)
+	if err != nil {
+		return fmt.Errorf("json decode failed '%s', for response '%s'", err.Error(), string(rbody))
+	}
+
+	for idx, key := range keys {
+		want := expected[idx]
+		if body.Data.Params[key] != want {
+			return fmt.Errorf(
+				"expected value for '%s' is '%s', got '%s'",
+				key,
+				want,
+				body.Data.Params[key],
+			)
+		}
+	}
+	return nil
+}
+
+func checkNotImplemented(req *http.Request, resp *httptest.ResponseRecorder) error {
+	if resp.Result().StatusCode != http.StatusNotImplemented {
+		return fmt.Errorf(
+			"expected code %d, got %d",
+			http.StatusNotImplemented,
+			resp.Code,
+		)
+	}
+	return nil
+}
+
+func checkNotFound(req *http.Request, resp *httptest.ResponseRecorder) error {
+	if resp.Result().StatusCode != http.StatusNotFound {
+		return fmt.Errorf(
+			"expected code %d, got %d",
+			http.StatusNotFound,
+			resp.Code,
+		)
+	}
+	return nil
+}
+
+func checkChaining(req *http.Request, resp *httptest.ResponseRecorder) error {
+	if resp.Header().Get("chained") != "true" {
+		return fmt.Errorf(
+			"Expected header value for 'chained', to be 'true', got '%s'",
+			resp.Header().Get("chained"),
+		)
+	}
+	return nil
+}
