@@ -209,3 +209,305 @@ func TestSendResponse(t *testing.T) {
 		)
 	}
 }
+
+func TestResponsehelpers(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	want := "hello world"
+	resp := struct {
+		Data   string
+		Errors string
+		Status int
+	}{}
+
+	R200(w, want)
+
+	body, err := ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Data != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Data,
+		)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusOK,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R201
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	R201(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Data != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Data,
+		)
+	}
+	if w.Code != http.StatusCreated {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusCreated,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R204
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	R204(w)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	if string(body) != "" {
+		t.Errorf(
+			"Expected empty response, got '%s'",
+			string(body),
+		)
+	}
+	if w.Code != http.StatusNoContent {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusNoContent,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R302
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	R302(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Data != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Data,
+		)
+	}
+	if w.Code != http.StatusFound {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusFound,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R400
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	resp.Errors = ""
+	R400(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Errors != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Errors,
+		)
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusBadRequest,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R403
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	resp.Errors = ""
+	R403(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Errors != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Errors,
+		)
+	}
+	if w.Code != http.StatusForbidden {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusForbidden,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R404
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	resp.Errors = ""
+	R404(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Errors != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Errors,
+		)
+	}
+	if w.Code != http.StatusNotFound {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusNotFound,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R406
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	resp.Errors = ""
+	R406(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Errors != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Errors,
+		)
+	}
+	if w.Code != http.StatusNotAcceptable {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusNotAcceptable,
+			w.Code,
+			string(body),
+		)
+	}
+
+	// R451
+	w = httptest.NewRecorder()
+	resp.Data = ""
+	resp.Errors = ""
+	R451(w, want)
+
+	body, err = ioutil.ReadAll(w.Body)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if resp.Errors != want {
+		t.Errorf(
+			"Expected '%s', got '%s'",
+			want,
+			resp.Errors,
+		)
+	}
+	if w.Code != http.StatusUnavailableForLegalReasons {
+		t.Errorf(
+			"Expected response status code %d, got %d. Raw response: '%s'",
+			http.StatusUnavailableForLegalReasons,
+			w.Code,
+			string(body),
+		)
+	}
+}
