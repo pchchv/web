@@ -213,3 +213,29 @@ func TestMatchWithWildcard(t *testing.T) {
 		}
 	})
 }
+
+func BenchmarkMatchWithWildcard(b *testing.B) {
+	route := Route{
+		Name:                    "widlcard",
+		Method:                  http.MethodGet,
+		TrailingSlash:           true,
+		FallThroughPostResponse: true,
+		Pattern:                 "/:w*/static1/:myvar/:w2*",
+		Handlers:                []http.HandlerFunc{dummyHandler},
+	}
+
+	uri := "/hello/world/how/are/you/static1/hello2/world2/how2/are2/you2/static2"
+	err := route.init()
+	if err != nil {
+		b.Error(err)
+		return
+	}
+
+	for i := 0; i < b.N; i++ {
+		ok, _ := route.matchPath(uri)
+		if !ok {
+			b.Errorf("Expected match, got no match")
+			break
+		}
+	}
+}
