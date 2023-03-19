@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func BenchmarkRouter(b *testing.B) {
@@ -22,5 +23,26 @@ func BenchmarkRouter(b *testing.B) {
 			b.Error("expected status 200, got", w.Result().StatusCode)
 			return
 		}
+	}
+}
+
+func TestStart(t *testing.T) {
+	t.Parallel()
+	router, _ := setup(t, "9696")
+	go router.Start()
+	time.Sleep(time.Second * 2)
+	err := router.Shutdown()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+func TestStartHTTPS(t *testing.T) {
+	t.Parallel()
+	router, _ := setup(t, "8443")
+	go router.StartHTTPS()
+	time.Sleep(time.Second * 2)
+	err := router.ShutdownHTTPS()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
