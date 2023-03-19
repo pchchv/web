@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,5 +69,21 @@ func TestResponseStatus(t *testing.T) {
 			http.StatusOK,
 			ResponseStatus(rw),
 		)
+	}
+}
+
+func TestErrorHandling(t *testing.T) {
+	t.Parallel()
+	err := errors.New("hello world, failed")
+	router, _ := setup(t, "7878")
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/", nil)
+	router.ServeHTTP(w, r)
+
+	SetError(r, err)
+	gotErr := GetError(r)
+
+	if !errors.Is(err, gotErr) {
+		t.Fatalf("expected err %v, got %v", err, gotErr)
 	}
 }
