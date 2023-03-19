@@ -46,3 +46,27 @@ func TestStartHTTPS(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestResponseStatus(t *testing.T) {
+	t.Parallel()
+	w := newCRW(httptest.NewRecorder(), http.StatusOK)
+	SendError(w, nil, http.StatusNotFound)
+	if http.StatusNotFound != ResponseStatus(w) {
+		t.Errorf(
+			"Expected status '%d', got '%d'",
+			http.StatusNotFound,
+			ResponseStatus(w),
+		)
+	}
+	// Ideally it should get 200 from ResponseStatus,
+	// but it can only get the exact status code when using `customresponsewriter`.
+	rw := httptest.NewRecorder()
+	SendError(rw, nil, http.StatusNotFound)
+	if http.StatusOK != ResponseStatus(rw) {
+		t.Errorf(
+			"Expected status '%d', got '%d'",
+			http.StatusOK,
+			ResponseStatus(rw),
+		)
+	}
+}
