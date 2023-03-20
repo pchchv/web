@@ -63,3 +63,13 @@ func (sse *SSE) RemoveClient(ctx context.Context, clientID string) {
 		sse.Clients.Remove(clientID),
 	)
 }
+
+func (sse *SSE) NewClient(ctx context.Context, w http.ResponseWriter, clientID string) *Client {
+	cli, count := sse.Clients.New(ctx, w, clientID)
+	sse.OnCreateClient(ctx, cli, count)
+	return cli
+}
+
+func (sse *SSE) ActiveClients() int {
+	return sse.Clients.Active()
+}
