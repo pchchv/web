@@ -194,3 +194,29 @@ func Middleware(allowedOriginRegex []regexp.Regexp, corsTimeout, allowedMethods,
 		next(rw, req)
 	}
 }
+
+// CORS is a single CORS middleware that can be applied to the entire application at once
+func CORS(cfg *Config) web.Middleware {
+	if cfg == nil {
+		cfg = new(Config)
+		// 30 minutes
+		cfg.TimeoutSecs = 30 * 60
+	}
+
+	allowedOrigins := cfg.AllowedOrigins
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = allowedDomains()
+	}
+
+	allowedOriginRegex := allowedOriginsRegex(allowedOrigins...)
+	allowedmethods := allowedMethods(cfg.Routes)
+	allowedHeaders := allowedHeaders(cfg.AllowedHeaders)
+	corsTimeout := fmt.Sprintf("%d", cfg.TimeoutSecs)
+
+	return Middleware(
+		allowedOriginRegex,
+		corsTimeout,
+		allowedmethods,
+		allowedHeaders,
+	)
+}
