@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,6 +119,110 @@ func TestCORSEmptyconfig(t *testing.T) {
 		t.Errorf(
 			"Expected empty body, got '%s'",
 			str,
+		)
+	}
+}
+
+func TestCORSWithConfig(t *testing.T) {
+	port := "9696"
+	routes := AddOptionsHandlers(getRoutes())
+	router, err := setup(port, routes)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	cfg := &Config{
+		Routes:         routes,
+		AllowedOrigins: []string{"example.com", fmt.Sprintf("localhost:%s", port)},
+		AllowedHeaders: []string{"x-custom"},
+	}
+	router.Use(CORS(cfg))
+
+	baseAPI := fmt.Sprintf("http://localhost:%s", port)
+	url := fmt.Sprintf("%s/hello", baseAPI)
+	w := httptest.NewRecorder()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		url,
+		nil,
+	)
+
+	router.SetupMiddleware()
+	router.ServeHTTP(w, req)
+
+	if w.Header().Get(headerMethods) != "GET,OPTIONS" {
+		t.Errorf(
+			"Expected value for %s header is 'GET', got '%s'",
+			headerMethods,
+			w.Header().Get(headerMethods),
+		)
+	}
+
+	want := strings.Join(cfg.AllowedHeaders, ",") + ","
+	if w.Header().Get(headerAllowHeaders) != want {
+		t.Errorf(
+			"Expected value for %s header is '%s', got '%s'",
+			headerAllowHeaders,
+			want,
+			w.Header().Get(headerAllowHeaders),
+		)
+	}
+
+	// test OPTIONS request
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(
+		http.MethodOptions,
+		url,
+		nil,
+	)
+
+	req.Header.Set("Origin", "helloworld.com")
+	router.ServeHTTP(w, req)
+	body, _ := ioutil.ReadAll(w.Body)
+	str := string(body)
+	if str != "" {
+		t.Errorf(
+			"Expected empty body, got '%s'",
+			str,
+		)
+	}
+	// because origin is set as "helloworld.com",
+	// which is not on the allowed list of origins CORS headers should NOT be set
+	if w.Header().Get(headerOrigin) != "" {
+		t.Errorf(
+			"Expected empty value for header '%s', got '%s'",
+			headerOrigin,
+			w.Header().Get(headerOrigin),
+		)
+	}
+	if w.Header().Get(headerAccessControlAge) != "" {
+		t.Errorf(
+			"Expected empty value for header '%s', got '%s'",
+			headerAccessControlAge,
+			w.Header().Get(headerAccessControlAge),
+		)
+	}
+	if w.Header().Get(headerCreds) != "" {
+		t.Errorf(
+			"Expected empty value for header '%s', got '%s'",
+			headerCreds,
+			w.Header().Get(headerCreds),
+		)
+	}
+	if w.Header().Get(headerMethods) != "" {
+		t.Errorf(
+			"Expected empty value for header '%s', got '%s'",
+			headerMethods,
+			w.Header().Get(headerMethods),
+		)
+	}
+	if w.Header().Get(headerAllowHeaders) != "" {
+		t.Errorf(
+			"Expected empty value for header '%s', got '%s'",
+			headerAllowHeaders,
+			w.Header().Get(headerAllowHeaders),
 		)
 	}
 }
