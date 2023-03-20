@@ -9,6 +9,8 @@ The list of allowed methods is as follows
 package cors
 
 import (
+	"net/http"
+
 	"github.com/pchchv/web"
 )
 
@@ -18,4 +20,14 @@ type Config struct {
 	Routes         []*web.Route
 	AllowedOrigins []string
 	AllowedHeaders []string
+}
+
+func allowedDomains() []string {
+	// The domains mentioned here are default
+	domains := []string{"*"}
+	return domains
+}
+
+func getReqOrigin(r *http.Request) string {
+	return r.Header.Get("Origin")
 }
