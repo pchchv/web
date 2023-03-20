@@ -18,7 +18,15 @@ import (
 	"github.com/pchchv/web"
 )
 
-const allowHeaders = "Accept,Content-Type,Content-Length,Accept-Encoding,Access-Control-Request-Headers,"
+const (
+	headerCreds            = "Access-Control-Allow-Credentials"
+	allowHeaders           = "Accept,Content-Type,Content-Length,Accept-Encoding,Access-Control-Request-Headers,"
+	headerOrigin           = "Access-Control-Allow-Origin"
+	headerMethods          = "Access-Control-Allow-Methods"
+	headerReqHeaders       = "Access-Control-Request-Headers"
+	headerAllowHeaders     = "Access-Control-Allow-Headers"
+	headerAccessControlAge = "Access-Control-Max-Age"
+)
 
 var defaultAllowMethods = "HEAD,GET,POST,PUT,PATCH,DELETE,OPTIONS"
 
@@ -157,4 +165,32 @@ func AddOptionsHandlers(routes []*web.Route) []*web.Route {
 		})
 	}
 	return list
+}
+
+// Middleware allows the user to use this middleware without the web
+func Middleware(allowedOriginRegex []regexp.Regexp, corsTimeout, allowedMethods, allowedHeaders string) web.Middleware {
+	return func(rw http.ResponseWriter, req *http.Request, next http.HandlerFunc) {
+		reqOrigin := getReqOrigin(req)
+		allowed := allowedOrigin(reqOrigin, allowedOriginRegex)
+
+		if !allowed {
+			// If CORS fails, the corresponding headers are not set.
+			// But execution is allowed.
+			next(rw, req)
+			return
+		}
+
+		// Set the appropriate response headers needed for CORS
+		rw.Header().Set(headerOrigin, reqOrigin)
+		rw.Header().Set(headerAccessControlAge, corsTimeout)
+		rw.Header().Set(headerCreds, "true")
+		rw.Header().Set(headerMethods, allowedMethods)
+		rw.Header().Set(headerAllowHeaders, allowedHeaders+req.Header.Get(headerReqHeaders))
+
+		if req.Method == http.MethodOptions {
+			web.SendHeader(rw, http.StatusOK)
+			return
+		}
+		next(rw, req)
+	}
 }
