@@ -127,3 +127,34 @@ func allowedOriginsRegex(allowedOrigins ...string) []regexp.Regexp {
 	}
 	return allowedOriginRegex
 }
+
+// AddOptionsHandlers adds an OPTIONS handler for all routes.
+// The response body will be empty for all new added handlers
+func AddOptionsHandlers(routes []*web.Route) []*web.Route {
+	dummyHandler := func(w http.ResponseWriter, r *http.Request) {}
+	if len(routes) == 0 {
+		return []*web.Route{
+			{
+				Name:          "cors",
+				Pattern:       "/:w*",
+				Method:        http.MethodOptions,
+				TrailingSlash: true,
+				Handlers:      []http.HandlerFunc{dummyHandler},
+			},
+		}
+	}
+
+	list := make([]*web.Route, 0, len(routes))
+	list = append(list, routes...)
+
+	for _, r := range routes {
+		list = append(list, &web.Route{
+			Name:          fmt.Sprintf("%s-CORS", r.Name),
+			Method:        http.MethodOptions,
+			Pattern:       r.Pattern,
+			TrailingSlash: true,
+			Handlers:      []http.HandlerFunc{dummyHandler},
+		})
+	}
+	return list
+}
