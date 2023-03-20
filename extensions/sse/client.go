@@ -19,6 +19,28 @@ type Clients struct {
 	MsgBuffer int
 }
 
+type ClientManager interface {
+	// New should return the new client as well as the total number of active clients after adding this new client
+	New(ctx context.Context, w http.ResponseWriter, clientID string) (*Client, int)
+	// The range should iteratively loop through all active clients
+	Range(func(*Client))
+	// Remove should remove the active client, to which the clientID is assigned, and close the connection
+	Remove(clientID string) int
+	// Active returns the number of active clients
+	Active() int
+	// Clients returns a list of all active clients
+	Clients() []*Client
+	// Client returns *Client if clientID is active
+	Client(clientID string) *Client
+}
+
+func NewClientManager() ClientManager {
+	return &Clients{
+		clients: make(map[string]*Client),
+		locker:  sync.Mutex{},
+	}
+}
+
 func (cs *Clients) New(ctx context.Context, w http.ResponseWriter, clientID string) (*Client, int) {
 	mchan := make(chan *Message, cs.MsgBuffer)
 	cli := &Client{
