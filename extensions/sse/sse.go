@@ -73,3 +73,54 @@ func (sse *SSE) NewClient(ctx context.Context, w http.ResponseWriter, clientID s
 func (sse *SSE) ActiveClients() int {
 	return sse.Clients.Active()
 }
+
+// Broadcast sends the message to all active clients
+func (sse *SSE) Broadcast(msg Message) {
+	sse.Clients.Range(func(cli *Client) {
+		cli.Msg <- &msg
+	})
+}
+
+// The handler returns an error,
+// rather than being used directly as a http.HandlerFunc to allow the user to handle the error.
+// e. g. if the error should be logged.
+func (sse *SSE) Handler(w http.ResponseWriter, r *http.Request) error {
+	flusher, hasFlusher := w.(http.Flusher)
+	if !hasFlusher {
+		return sse.UnsupportedMessage(w, r)
+	}
+
+	header := w.Header()
+	header.Set("Content-Type", "text/event-stream")
+	header.Set("Connection", "keep-alive")
+	header.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	ctx := r.Context()
+
+	clientID := r.Header.Get(sse.ClientIDHeader)
+	client := sse.NewClient(ctx, w, clientID)
+	defer sse.RemoveClient(ctx, clientID)
+
+	sse.BeforeSend(ctx, client)
+	for {
+		select {
+		case payload, ok := <-client.Msg:
+			if !ok {
+				return nil
+			}
+			_, err := w.Write(payload.Bytes())
+			sse.OnSend(ctx, client, err)
+			if err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			{
+				err := ctx.Err()
+				sse.OnSend(ctx, client, err)
+				return err
+			}
+		}
+		flusher.Flush()
+	}
+}
