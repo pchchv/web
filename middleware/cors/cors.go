@@ -10,9 +10,12 @@ package cors
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/pchchv/web"
 )
+
+const allowHeaders = "Accept,Content-Type,Content-Length,Accept-Encoding,Access-Control-Request-Headers,"
 
 // Config holds all the configurations that are available to configure this middleware
 type Config struct {
@@ -30,4 +33,16 @@ func allowedDomains() []string {
 
 func getReqOrigin(r *http.Request) string {
 	return r.Header.Get("Origin")
+}
+
+func allowedHeaders(headers []string) string {
+	if len(headers) == 0 {
+		return allowHeaders
+	}
+
+	allowedHeaders := strings.Join(headers, ",")
+	if allowedHeaders[len(allowedHeaders)-1] != ',' {
+		allowedHeaders += ","
+	}
+	return allowedHeaders
 }
