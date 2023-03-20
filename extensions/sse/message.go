@@ -2,6 +2,7 @@ package sse
 
 import (
 	"bytes"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -47,4 +48,10 @@ func (m *Message) Bytes() []byte {
 	}
 	buff.WriteString("\n")
 	return buff.Bytes()
+}
+
+func DefaultUnsupportedMessageHandler(w http.ResponseWriter, r *http.Request) error {
+	w.WriteHeader(http.StatusNotImplemented)
+	_, err := w.Write([]byte("Streaming not supported"))
+	return err
 }
