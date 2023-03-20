@@ -29,6 +29,19 @@ type SSE struct {
 	Clients    ClientManager
 }
 
+func New() *SSE {
+	s := &SSE{
+		ClientIDHeader:     "sse-clientid",
+		Clients:            NewClientManager(),
+		UnsupportedMessage: DefaultUnsupportedMessageHandler,
+		OnRemoveClient:     DefaultRemoveHook,
+		OnCreateClient:     DefaultCreateHook,
+		OnSend:             DefaultOnSend,
+		BeforeSend:         DefaultBeforeSend,
+	}
+	return s
+}
+
 func DefaultCreateHook(ctx context.Context, client *Client, count int)  {}
 func DefaultRemoveHook(ctx context.Context, clientID string, count int) {}
 func DefaultOnSend(ctx context.Context, client *Client, err error)      {}
