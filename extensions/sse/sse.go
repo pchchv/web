@@ -46,3 +46,20 @@ func DefaultCreateHook(ctx context.Context, client *Client, count int)  {}
 func DefaultRemoveHook(ctx context.Context, clientID string, count int) {}
 func DefaultOnSend(ctx context.Context, client *Client, err error)      {}
 func DefaultBeforeSend(ctx context.Context, client *Client)             {}
+
+func (sse *SSE) Client(id string) *Client {
+	return sse.Clients.Client(id)
+}
+
+func (sse *SSE) RemoveClient(ctx context.Context, clientID string) {
+	cli := sse.Clients.Client(clientID)
+	if cli != nil {
+		close(cli.Msg)
+	}
+
+	sse.OnRemoveClient(
+		ctx,
+		clientID,
+		sse.Clients.Remove(clientID),
+	)
+}
