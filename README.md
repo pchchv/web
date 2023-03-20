@@ -178,4 +178,4 @@ MDN has very good documentation on what [SSE (Server-Sent Events)](https://devel
 
 ## Usage
 
-A fully functional sample is available [here] (https://github.com/pchchv/web/blob/master/cmd/main.go).
+A fully functional sample is available [here](https://github.com/pchchv/web/blob/master/cmd/main.go).
