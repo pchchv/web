@@ -28,3 +28,8 @@ type SSE struct {
 	BeforeSend func(ctx context.Context, client *Client)
 	Clients    ClientManager
 }
+
+func DefaultCreateHook(ctx context.Context, client *Client, count int)  {}
+func DefaultRemoveHook(ctx context.Context, clientID string, count int) {}
+func DefaultOnSend(ctx context.Context, client *Client, err error)      {}
+func DefaultBeforeSend(ctx context.Context, client *Client)             {}
