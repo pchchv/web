@@ -9,6 +9,7 @@ The list of allowed methods is as follows
 package cors
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"sort"
@@ -82,4 +83,47 @@ func allowedOrigin(reqOrigin string, allowedOriginRegex []regexp.Regexp) bool {
 		}
 	}
 	return false
+}
+
+func allowedOriginsRegex(allowedOrigins ...string) []regexp.Regexp {
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = []string{"*"}
+	} else {
+		// If "*" is one of the allowed domains,
+		// i.e. all domains, then the other values are ignored
+		for _, val := range allowedOrigins {
+			val = strings.TrimSpace(val)
+
+			if val == "*" {
+				allowedOrigins = []string{"*"}
+				break
+			}
+		}
+	}
+
+	allowedOriginRegex := make([]regexp.Regexp, 0, len(allowedOrigins))
+	for _, ao := range allowedOrigins {
+		parts := strings.Split(ao, ":")
+		str := strings.TrimSpace(parts[0])
+		if str == "" {
+			continue
+		}
+
+		if str == "*" {
+			allowedOriginRegex = append(
+				allowedOriginRegex,
+				*(regexp.MustCompile(".+")),
+			)
+			break
+		}
+
+		regStr := fmt.Sprintf(`^(http)?(https)?(:\/\/)?(.+\.)?%s(:[0-9]+)?$`, str)
+
+		allowedOriginRegex = append(
+			allowedOriginRegex,
+			// Allow any port number of the specified domain
+			*(regexp.MustCompile(regStr)),
+		)
+	}
+	return allowedOriginRegex
 }
