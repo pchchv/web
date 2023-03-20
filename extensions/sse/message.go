@@ -1,6 +1,10 @@
 package sse
 
-import "time"
+import (
+	"bytes"
+	"strconv"
+	"time"
+)
 
 // Message represents a valid SSE message
 type Message struct {
@@ -22,4 +26,25 @@ type Message struct {
 	// It should be an integer number specifying the reconnection time in milliseconds.
 	// If a non-integer value is specified, the field is ignored.
 	Retry time.Duration
+}
+
+func (m *Message) Bytes() []byte {
+	// The event stream is a simple stream of text data that must be encoded using UTF-8.
+	// Messages in the event stream are separated by a pair of newline characters.
+	// The colon as the first character of the line is essentially a comment and is ignored.
+	buff := bytes.NewBufferString("")
+	if m.Event != "" {
+		buff.WriteString("event:" + m.Event + "\n")
+	}
+	if m.ID != "" {
+		buff.WriteString("id:" + m.ID + "\n")
+	}
+	if m.Data != "" {
+		buff.WriteString("data:" + m.Data + "\n")
+	}
+	if m.Retry != 0 {
+		buff.WriteString("retry:" + strconv.Itoa(int(m.Retry.Milliseconds())) + "\n")
+	}
+	buff.WriteString("\n")
+	return buff.Bytes()
 }
