@@ -10,12 +10,16 @@ package cors
 
 import (
 	"net/http"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/pchchv/web"
 )
 
 const allowHeaders = "Accept,Content-Type,Content-Length,Accept-Encoding,Access-Control-Request-Headers,"
+
+var defaultAllowMethods = "HEAD,GET,POST,PUT,PATCH,DELETE,OPTIONS"
 
 // Config holds all the configurations that are available to configure this middleware
 type Config struct {
@@ -45,4 +49,37 @@ func allowedHeaders(headers []string) string {
 		allowedHeaders += ","
 	}
 	return allowedHeaders
+}
+
+func allowedMethods(routes []*web.Route) string {
+	if len(routes) == 0 {
+		return defaultAllowMethods
+	}
+
+	methods := make([]string, 0, len(routes))
+	for _, r := range routes {
+		found := false
+		for _, m := range methods {
+			if m == r.Method {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		methods = append(methods, r.Method)
+	}
+	sort.Strings(methods)
+	return strings.Join(methods, ",")
+}
+
+func allowedOrigin(reqOrigin string, allowedOriginRegex []regexp.Regexp) bool {
+	for _, o := range allowedOriginRegex {
+		// Set the appropriate response headers needed for CORS
+		if o.MatchString(reqOrigin) || reqOrigin == "" {
+			return true
+		}
+	}
+	return false
 }
