@@ -124,3 +124,10 @@ func (sse *SSE) Handler(w http.ResponseWriter, r *http.Request) error {
 		flusher.Flush()
 	}
 }
+
+// HandlerFunc is a convenience function that can
+// be used directly with net/http implementations.
+// Errors returned by the handler cannot be handled.
+func (sse *SSE) HandlerFunc(w http.ResponseWriter, r *http.Request) {
+	_ = sse.Handler(w, r)
+}
