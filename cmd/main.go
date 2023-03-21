@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/pchchv/web"
 	"github.com/pchchv/web/extensions/sse"
+	"github.com/pchchv/web/middleware/accesslog"
+	"github.com/pchchv/web/middleware/cors"
 )
 
 var lastModified = time.Now().Format(http.TimeFormat)
@@ -93,6 +98,57 @@ func getRoutes(sse *sse.SSE) []*web.Route {
 			TrailingSlash: true,
 		},
 	}
+}
+
+func setup() (*web.Router, *sse.SSE) {
+	port := strings.TrimSpace(os.Getenv("HTTP_PORT"))
+	if port == "" {
+		port = "8080"
+	}
+	cfg := &web.Config{
+		Host:         "",
+		Port:         port,
+		HTTPSPort:    "9595",
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 1 * time.Hour,
+		CertFile:     "./certs/localhost.crt",
+		KeyFile:      "./certs/localhost.decrypted.key",
+	}
+
+	web.GlobalLoggerConfig(
+		nil, nil,
+		web.LogCfgDisableDebug,
+	)
+
+	routeGroup := web.NewRouteGroup("/v7.0.0", false)
+	routeGroup.Add(web.Route{
+		Name:     "router-group-prefix-v7.0.0_api",
+		Method:   http.MethodGet,
+		Pattern:  "/api/:param",
+		Handlers: []http.HandlerFunc{chain, ParamHandler},
+	})
+	routeGroup.Use(routegroupMiddleware)
+
+	sseService := sse.New()
+	sseService.OnRemoveClient = func(ctx context.Context, clientID string, count int) {
+		log.Printf("\nClient %q removed, active client(s): %d\n", clientID, count)
+	}
+	sseService.OnCreateClient = func(ctx context.Context, client *sse.Client, count int) {
+		log.Printf("\nClient %q added, active client(s): %d\n", client.ID, count)
+	}
+
+	routes := getRoutes(sseService)
+	routes = append(routes, routeGroup.Routes()...)
+
+	router := web.NewRouter(cfg, routes...)
+	router.UseOnSpecialHandlers(accesslog.AccessLog)
+	router.Use(
+		errLogger,
+		cors.CORS(nil),
+		accesslog.AccessLog,
+	)
+
+	return router, sseService
 }
 
 func main() {
