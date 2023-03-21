@@ -3,12 +3,34 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/pchchv/golog"
 	"github.com/pchchv/web"
 	"github.com/pchchv/web/extensions/sse"
 )
+
+// StaticFilesHandler is used to serve static files
+func StaticFilesHandler(rw http.ResponseWriter, r *http.Request) {
+	wctx := web.Context(r)
+	// '..' is replaced to prevent directory traversal which could go out of static directory
+	path := strings.ReplaceAll(wctx.Params()["w"], "..", "-")
+	path = strings.ReplaceAll(path, "~", "-")
+
+	rw.Header().Set("Last-Modified", lastModified)
+	http.ServeFile(rw, r, fmt.Sprintf("./static/%s", path))
+}
+
+func OriginalResponseWriterHandler(w http.ResponseWriter, r *http.Request) {
+	rw := web.OriginalResponseWriter(w)
+	if rw == nil {
+		web.Send(w, "text/html", "got nil", http.StatusPreconditionFailed)
+		return
+	}
+	web.Send(w, "text/html", "success", http.StatusOK)
+}
 
 func ParamHandler(w http.ResponseWriter, r *http.Request) {
 	// Web context
