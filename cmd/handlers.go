@@ -73,3 +73,52 @@ func ErrorSetterHandler(w http.ResponseWriter, r *http.Request) {
 func InvalidJSONHandler(w http.ResponseWriter, r *http.Request) {
 	web.R200(w, make(chan int))
 }
+
+func pushCSS(pusher http.Pusher, r *http.Request, path string) {
+	cssOpts := &http.PushOptions{
+		Header: http.Header{
+			"Accept-Encoding": r.Header["Accept-Encoding"],
+			"Content-Type":    []string{"text/css; charset=UTF-8"},
+		},
+	}
+	err := pusher.Push(path, cssOpts)
+	if err != nil {
+		web.LOGHANDLER.Error(err)
+	}
+}
+
+func pushJS(pusher http.Pusher, r *http.Request, path string) {
+	cssOpts := &http.PushOptions{
+		Header: http.Header{
+			"Accept-Encoding": r.Header["Accept-Encoding"],
+			"Content-Type":    []string{"application/javascript"},
+		},
+	}
+	err := pusher.Push(path, cssOpts)
+	if err != nil {
+		web.LOGHANDLER.Error(err)
+	}
+}
+
+func pushHomepage(r *http.Request, w http.ResponseWriter) {
+	pusher, ok := w.(http.Pusher)
+	if !ok {
+		return
+	}
+
+	cp, _ := r.Cookie("pusher")
+	if cp != nil {
+		return
+	}
+
+	cookie := &http.Cookie{
+		Name:   "pusher",
+		Value:  "css,js",
+		MaxAge: 300,
+	}
+	http.SetCookie(w, cookie)
+	pushCSS(pusher, r, "/static/css/main.css")
+	pushCSS(pusher, r, "/static/css/normalize.css")
+	pushJS(pusher, r, "/static/js/main.js")
+	pushJS(pusher, r, "/static/js/sse.js")
+}
