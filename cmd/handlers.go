@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
+	"github.com/pchchv/golog"
 	"github.com/pchchv/web"
+	"github.com/pchchv/web/extensions/sse"
 )
 
 func ParamHandler(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +26,26 @@ func ParamHandler(w http.ResponseWriter, r *http.Request) {
 			"chained":       r.Header.Get("chained"),
 		},
 	)
+}
+
+func SSEHandler(sse *sse.SSE) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := web.Context(r).Params()
+		r.Header.Set(sse.ClientIDHeader, params["clientID"])
+
+		err := sse.Handler(w, r)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			golog.Info("errorLogger:", err.Error())
+			return
+		}
+	}
+}
+
+func ErrorSetterHandler(w http.ResponseWriter, r *http.Request) {
+	err := errors.New("oh no, server error")
+	web.SetError(r, err)
+
+	web.R500(w, err.Error())
 }
 
 func InvalidJSONHandler(w http.ResponseWriter, r *http.Request) {
