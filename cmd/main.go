@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -152,4 +153,24 @@ func setup() (*web.Router, *sse.SSE) {
 }
 
 func main() {
+	router, sseService := setup()
+	clients := []*sse.Client{}
+	sseService.OnCreateClient = func(ctx context.Context, client *sse.Client, count int) {
+		clients = append(clients, client)
+	}
+	// broadcast server time to all SSE listeners
+	go func() {
+		retry := time.Millisecond * 500
+		for {
+			now := time.Now().Format(time.RFC1123Z)
+			sseService.Broadcast(sse.Message{
+				Data:  now + fmt.Sprintf(" (%d)", sseService.ActiveClients()),
+				Retry: retry,
+			})
+			time.Sleep(time.Second)
+		}
+	}()
+
+	go router.StartHTTPS()
+	router.Start()
 }
