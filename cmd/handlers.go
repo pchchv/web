@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/pchchv/golog"
@@ -72,6 +73,33 @@ func ErrorSetterHandler(w http.ResponseWriter, r *http.Request) {
 
 func InvalidJSONHandler(w http.ResponseWriter, r *http.Request) {
 	web.R200(w, make(chan int))
+}
+
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	fs, err := os.OpenFile("./static/index.html", os.O_RDONLY, 0600)
+	if err != nil {
+		web.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	info, err := fs.Stat()
+	if err != nil {
+		web.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	out := make([]byte, info.Size())
+	_, err = fs.Read(out)
+	if err != nil {
+		web.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	pushHomepage(r, w)
+
+	_, err = w.Write(out)
+	if err != nil {
+		web.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func pushCSS(pusher http.Pusher, r *http.Request, path string) {
